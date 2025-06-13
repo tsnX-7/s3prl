@@ -375,6 +375,7 @@ class Model(nn.Module):
             encoder_states = self.encoder(resampled_features) # (B, Lmax, hidden_dim)
         
         # decoder: LSTMP layers & projection
+        # ...existing code...
         if self.ar:
             if targets is not None:
                 targets = targets.transpose(0, 1) # (Lmax, B, output_dim)
@@ -388,19 +389,24 @@ class Model(nn.Module):
                 z_list += [encoder_states.new_zeros(B, self.hidden_dim)]
             prev_out = encoder_states.new_zeros(B, self.output_dim)
 
+            # Determine decoding length
+            max_steps = encoder_states.shape[1]
+            if targets is not None:
+                max_steps = min(max_steps, targets.shape[0])
+
             # step-by-step loop for autoregressive decoding
-            for t, encoder_state in enumerate(encoder_states.transpose(0, 1)):
-                concat = torch.cat([encoder_state, self.prenet(prev_out)], dim=1) # each encoder_state has shape (B, hidden_dim)
+            for t in range(max_steps):
+                encoder_state = encoder_states[:, t, :]
+                concat = torch.cat([encoder_state, self.prenet(prev_out)], dim=1)
                 for i, lstmp in enumerate(self.lstmps):
                     lstmp_input = concat if i == 0 else z_list[i-1]
                     z_list[i], c_list[i] = lstmp(lstmp_input, z_list[i], c_list[i])
-                predicted_list += [self.proj(z_list[-1]).view(B, self.output_dim, -1)] # projection is done here to ensure output dim
-                prev_out = targets[t] if targets is not None else predicted_list[-1].squeeze(-1) # targets not None = teacher-forcing
-                prev_out = self.normalize(prev_out) # apply normalization
+                predicted_list += [self.proj(z_list[-1]).view(B, self.output_dim, -1)]
+                prev_out = targets[t] if targets is not None else predicted_list[-1].squeeze(-1)
+                prev_out = self.normalize(prev_out)
             predicted = torch.cat(predicted_list, dim=2)
             predicted = predicted.transpose(1, 2)  # (B, hidden_dim, Lmax) -> (B, Lmax, hidden_dim)
-        else:
-            predicted = encoder_states
+# ...existing code...
             for i, lstmp in enumerate(self.lstmps):
                 predicted, lens = lstmp(predicted, lens)
         
