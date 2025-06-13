@@ -355,6 +355,7 @@ class Model(nn.Module):
         return (x - self.target_mean) / self.target_scale
 
     def forward(self, features, lens, targets = None):
+        print("Running model.py from:", __file__)
         """Calculate forward propagation.
             Args:
             features: Batch of the sequences of input features (B, Lmax, idim).
