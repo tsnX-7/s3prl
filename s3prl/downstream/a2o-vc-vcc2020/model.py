@@ -394,7 +394,14 @@ class Model(nn.Module):
             if targets is not None:
                 max_steps = min(max_steps, targets.shape[0])
 
+                # Debug prints
+            print("encoder_states.shape:", encoder_states.shape)
+            if targets is not None:
+                print("targets.shape:", targets.shape)
+            print("max_steps:", max_steps)
+
             # step-by-step loop for autoregressive decoding
+            # ...existing code...
             for t in range(max_steps):
                 encoder_state = encoder_states[:, t, :]
                 concat = torch.cat([encoder_state, self.prenet(prev_out)], dim=1)
@@ -402,8 +409,12 @@ class Model(nn.Module):
                     lstmp_input = concat if i == 0 else z_list[i-1]
                     z_list[i], c_list[i] = lstmp(lstmp_input, z_list[i], c_list[i])
                 predicted_list += [self.proj(z_list[-1]).view(B, self.output_dim, -1)]
-                prev_out = targets[t] if targets is not None else predicted_list[-1].squeeze(-1)
+                if targets is not None and t < targets.shape[0]:
+                    prev_out = targets[t]
+                else:
+                    prev_out = predicted_list[-1].squeeze(-1)
                 prev_out = self.normalize(prev_out)
+# ...existing code...
             predicted = torch.cat(predicted_list, dim=2)
             predicted = predicted.transpose(1, 2)  # (B, hidden_dim, Lmax) -> (B, Lmax, hidden_dim)
 # ...existing code...
